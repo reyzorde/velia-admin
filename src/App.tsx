@@ -1,8 +1,9 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { NavLink, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Building2, CreditCard, BookOpen, Users, Megaphone, LogOut, Plus, Trash2, Loader2, Shield,
+  LayoutDashboard, Building2, CreditCard, BookOpen, Users, Megaphone, LogOut, Plus, Trash2, Loader2,
 } from 'lucide-react';
+import logoDark from './assets/velia-night-logo.png';
 import { supabase } from './lib/supabase';
 
 type AdminUser = { id: string; email?: string };
@@ -65,7 +66,7 @@ function Login() {
     <div className="login-wrap">
       <form className="card login-card" onSubmit={submit}>
         <div className="brand-row">
-          <img src="/assets/velia-logo-night.png" alt="Velia" className="logo" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src={logoDark} alt="Velia" className="logo" />
           <div><h1>Velia Admin</h1><p className="muted">Platform boshqaruvi</p></div>
         </div>
         <label className="muted">Email</label>
@@ -86,7 +87,10 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="side-brand"><Shield size={18} /><span>Velia Admin</span></div>
+        <div className="side-brand">
+          <img src={logoDark} alt="Velia" className="side-logo" />
+          <span>Admin</span>
+        </div>
         <NavLink to="/" end><LayoutDashboard size={16} /> Dashboard</NavLink>
         <NavLink to="/centers"><Building2 size={16} /> Markazlar</NavLink>
         <NavLink to="/subscriptions"><CreditCard size={16} /> Tariflar</NavLink>
@@ -120,7 +124,7 @@ function Dashboard() {
       <h1>Dashboard</h1>
       <div className="stats">
         <div className="stat"><span className="muted">Markazlar</span><strong>{stats.centers}</strong></div>
-        <div className="stat"><span className="muted">Oquvchilar</span><strong>{stats.students}</strong></div>
+        <div className="stat"><span className="muted">O'quvchilar</span><strong>{stats.students}</strong></div>
         <div className="stat"><span className="muted">Mock testlar</span><strong>{stats.mocks}</strong></div>
         <div className="stat"><span className="muted">Tariflar</span><strong>{stats.subs}</strong></div>
       </div>
@@ -189,7 +193,7 @@ function Centers() {
         },
         { onConflict: 'center_id' }
       );
-    } catch { /* optional table */ }
+    } catch { /* optional */ }
     await load();
   };
 
@@ -204,7 +208,7 @@ function Centers() {
               <th>Nomi</th>
               <th>Joriy tarif</th>
               <th>Limit</th>
-              <th>Tarifni ozgartirish</th>
+              <th>Tarifni o'zgartirish</th>
             </tr>
           </thead>
           <tbody>
@@ -274,7 +278,7 @@ function Subscriptions() {
               <th>Markaz</th>
               <th>Plan</th>
               <th>Limit</th>
-              <th>Ozgartirish</th>
+              <th>O'zgartirish</th>
             </tr>
           </thead>
           <tbody>
@@ -463,7 +467,7 @@ function Announcements() {
           {centers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {msg && <p className="muted">{msg}</p>}
-        <button className="btn" type="submit" disabled={busy}>{busy ? <Loader2 className="spin" size={16} /> : <Megaphone size={16} />} Yuborish</button>
+        <button className="btn" type="submit" disabled={busy}>{busy ? <Loader2 className="spin" size={16} /> : <Plus size={16} />} Yuborish</button>
       </form>
       <div className="card table-wrap">
         <table>
@@ -474,7 +478,7 @@ function Announcements() {
               return (
                 <tr key={r.id}>
                   <td>{r.title || '—'}</td>
-                  <td style={{ maxWidth: 280 }}>{r.body?.slice(0, 80)}</td>
+                  <td style={{ maxWidth: 280 }}>{r.body}</td>
                   <td>{c?.name || 'Barcha'}</td>
                   <td><button className="btn danger" type="button" onClick={() => void remove(r.id)}><Trash2 size={14} /></button></td>
                 </tr>
@@ -491,17 +495,13 @@ function UsersPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, is_platform_admin, created_at')
-      .order('created_at', { ascending: false })
-      .limit(300);
+    const { data } = await supabase.from('profiles').select('id, email, full_name, is_platform_admin').order('email');
     setRows(data || []);
   }, []);
   useEffect(() => { void load(); }, [load]);
-  const toggleAdmin = async (id: string, value: boolean) => {
-    const { error } = await supabase.from('profiles').update({ is_platform_admin: value }).eq('id', id);
-    setMsg(error ? error.message : 'Saqlandi');
+  const toggleAdmin = async (id: string, current: boolean) => {
+    const { error } = await supabase.from('profiles').update({ is_platform_admin: !current }).eq('id', id);
+    setMsg(error ? error.message : current ? 'Admin olib tashlandi' : 'Admin qilindi');
     await load();
   };
   return (
@@ -510,18 +510,17 @@ function UsersPage() {
       {msg && <p className="muted">{msg}</p>}
       <div className="card table-wrap">
         <table>
-          <thead><tr><th>Ism</th><th>Email</th><th>Admin</th></tr></thead>
+          <thead><tr><th>Ism</th><th>Email</th><th>Admin</th><th></th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.full_name || '—'}</td>
                 <td>{r.email}</td>
+                <td>{r.is_platform_admin ? 'Ha' : 'Yo\'q'}</td>
                 <td>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(r.is_platform_admin)}
-                    onChange={(e) => void toggleAdmin(r.id, e.target.checked)}
-                  />
+                  <button className="btn secondary" type="button" onClick={() => void toggleAdmin(r.id, r.is_platform_admin)}>
+                    {r.is_platform_admin ? "Adminni olib tashla" : 'Admin qil'}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -532,7 +531,7 @@ function UsersPage() {
   );
 }
 
-function Guard({ children }: { children: React.ReactNode }) {
+function Gate({ children }: { children: React.ReactNode }) {
   const { ok, loading } = useAdmin();
   if (loading) return <div className="login-wrap"><Loader2 className="spin" size={28} /></div>;
   if (!ok) return <Navigate to="/login" replace />;
@@ -543,12 +542,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Guard><Dashboard /></Guard>} />
-      <Route path="/centers" element={<Guard><Centers /></Guard>} />
-      <Route path="/subscriptions" element={<Guard><Subscriptions /></Guard>} />
-      <Route path="/mocks" element={<Guard><Mocks /></Guard>} />
-      <Route path="/announcements" element={<Guard><Announcements /></Guard>} />
-      <Route path="/users" element={<Guard><UsersPage /></Guard>} />
+      <Route path="/" element={<Gate><Dashboard /></Gate>} />
+      <Route path="/centers" element={<Gate><Centers /></Gate>} />
+      <Route path="/subscriptions" element={<Gate><Subscriptions /></Gate>} />
+      <Route path="/mocks" element={<Gate><Mocks /></Gate>} />
+      <Route path="/announcements" element={<Gate><Announcements /></Gate>} />
+      <Route path="/users" element={<Gate><UsersPage /></Gate>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
