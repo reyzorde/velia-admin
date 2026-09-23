@@ -49,14 +49,18 @@ function Login() {
     try {
       const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err || !data.user) { setError(err?.message || 'Login xato'); return; }
-      const { data: profile } = await supabase
+      const { data: profile, error: pErr } = await supabase
         .from('profiles')
         .select('is_platform_admin')
         .eq('id', data.user.id)
         .maybeSingle();
+      if (pErr) {
+        setError('Profil o‘qilmadi (403). Supabase da FIX_RLS_NOW.sql ni ishga tushiring.');
+        return;
+      }
       if (!profile?.is_platform_admin) {
         await supabase.auth.signOut();
-        setError('Platform admin emas');
+        setError('Bu hisob platform admin emas. SQL: UPDATE profiles SET is_platform_admin = true WHERE email = \'...\';');
         return;
       }
       nav('/');
