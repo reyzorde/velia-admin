@@ -6,6 +6,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- History table
 CREATE TABLE IF NOT EXISTS public.subscription_plan_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   center_id UUID NOT NULL REFERENCES public.centers(id) ON DELETE CASCADE,
@@ -42,6 +43,8 @@ CREATE POLICY sub_hist_admin_write ON public.subscription_plan_history
 
 GRANT SELECT, INSERT ON public.subscription_plan_history TO authenticated;
 
+-- Ensure notifications allow admin insert for subscription type
+-- (existing table; only add policy if needed)
 DO $$
 BEGIN
   IF EXISTS (
@@ -68,6 +71,7 @@ BEGIN
   END IF;
 END $$;
 
+-- Atomic plan change: update + history + owner notification
 CREATE OR REPLACE FUNCTION public.admin_change_center_subscription(
   p_center_id UUID,
   p_plan TEXT,
@@ -155,6 +159,7 @@ BEGIN
     WHERE center_id = p_center_id;
   END IF;
 
+  -- Sync physical center_subscriptions table if present
   IF EXISTS (
     SELECT 1 FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -255,6 +260,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_change_center_subscription(UUID, TEXT, TEXT, INT, TEXT) TO authenticated;
 
+-- Keep legacy RPC working (monthly default)
 CREATE OR REPLACE FUNCTION public.admin_set_center_plan(
   p_center_id UUID,
   p_plan TEXT,
